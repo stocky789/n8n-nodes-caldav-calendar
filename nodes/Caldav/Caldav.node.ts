@@ -236,6 +236,180 @@ export class Caldav implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Timezone',
+				name: 'timezone',
+				type: 'options',
+				default: 'UTC',
+				description: 'Timezone for the event. Select UTC to store as UTC, or choose a specific timezone.',
+				options: [
+					{
+						name: 'UTC (No Timezone)',
+						value: 'UTC',
+					},
+					{
+						name: 'Europe/London',
+						value: 'Europe/London',
+					},
+					{
+						name: 'Europe/Paris',
+						value: 'Europe/Paris',
+					},
+					{
+						name: 'Europe/Berlin',
+						value: 'Europe/Berlin',
+					},
+					{
+						name: 'Europe/Amsterdam',
+						value: 'Europe/Amsterdam',
+					},
+					{
+						name: 'Europe/Brussels',
+						value: 'Europe/Brussels',
+					},
+					{
+						name: 'Europe/Madrid',
+						value: 'Europe/Madrid',
+					},
+					{
+						name: 'Europe/Rome',
+						value: 'Europe/Rome',
+					},
+					{
+						name: 'Europe/Vienna',
+						value: 'Europe/Vienna',
+					},
+					{
+						name: 'Europe/Warsaw',
+						value: 'Europe/Warsaw',
+					},
+					{
+						name: 'Europe/Stockholm',
+						value: 'Europe/Stockholm',
+					},
+					{
+						name: 'Europe/Copenhagen',
+						value: 'Europe/Copenhagen',
+					},
+					{
+						name: 'Europe/Helsinki',
+						value: 'Europe/Helsinki',
+					},
+					{
+						name: 'Europe/Athens',
+						value: 'Europe/Athens',
+					},
+					{
+						name: 'Europe/Lisbon',
+						value: 'Europe/Lisbon',
+					},
+					{
+						name: 'Europe/Dublin',
+						value: 'Europe/Dublin',
+					},
+					{
+						name: 'Europe/Moscow',
+						value: 'Europe/Moscow',
+					},
+					{
+						name: 'America/New_York',
+						value: 'America/New_York',
+					},
+					{
+						name: 'America/Chicago',
+						value: 'America/Chicago',
+					},
+					{
+						name: 'America/Denver',
+						value: 'America/Denver',
+					},
+					{
+						name: 'America/Los_Angeles',
+						value: 'America/Los_Angeles',
+					},
+					{
+						name: 'America/Toronto',
+						value: 'America/Toronto',
+					},
+					{
+						name: 'America/Vancouver',
+						value: 'America/Vancouver',
+					},
+					{
+						name: 'America/Mexico_City',
+						value: 'America/Mexico_City',
+					},
+					{
+						name: 'America/Sao_Paulo',
+						value: 'America/Sao_Paulo',
+					},
+					{
+						name: 'America/Buenos_Aires',
+						value: 'America/Buenos_Aires',
+					},
+					{
+						name: 'Asia/Dubai',
+						value: 'Asia/Dubai',
+					},
+					{
+						name: 'Asia/Shanghai',
+						value: 'Asia/Shanghai',
+					},
+					{
+						name: 'Asia/Tokyo',
+						value: 'Asia/Tokyo',
+					},
+					{
+						name: 'Asia/Seoul',
+						value: 'Asia/Seoul',
+					},
+					{
+						name: 'Asia/Hong_Kong',
+						value: 'Asia/Hong_Kong',
+					},
+					{
+						name: 'Asia/Singapore',
+						value: 'Asia/Singapore',
+					},
+					{
+						name: 'Asia/Bangkok',
+						value: 'Asia/Bangkok',
+					},
+					{
+						name: 'Asia/Kolkata',
+						value: 'Asia/Kolkata',
+					},
+					{
+						name: 'Asia/Karachi',
+						value: 'Asia/Karachi',
+					},
+					{
+						name: 'Australia/Sydney',
+						value: 'Australia/Sydney',
+					},
+					{
+						name: 'Australia/Melbourne',
+						value: 'Australia/Melbourne',
+					},
+					{
+						name: 'Australia/Brisbane',
+						value: 'Australia/Brisbane',
+					},
+					{
+						name: 'Australia/Perth',
+						value: 'Australia/Perth',
+					},
+					{
+						name: 'Pacific/Auckland',
+						value: 'Pacific/Auckland',
+					},
+				],
+				displayOptions: {
+					show: {
+						operation: ['createEvent'],
+					},
+				},
+			},
 
 			// Parameters for deleting event
 			{
@@ -380,12 +554,246 @@ export class Caldav implements INodeType {
 			return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}@n8n.io`;
 		};
 
-		// Function for formatting date to iCal format
+		// Function for formatting date to iCal format (local time, no timezone conversion)
+		const formatDateForICalLocal = (date: Date): string => {
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			const seconds = String(date.getSeconds()).padStart(2, '0');
+
+			return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+		};
+
+		// Function for formatting date to iCal format (UTC)
 		const formatDateForICal = (date: Date, isAllDay = false): string => {
 			if (isAllDay) {
 				return date.toISOString().split('T')[0].replace(/-/g, '');
 			}
 			return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+		};
+
+		// Function for generating VTIMEZONE block
+		const generateVTimezone = (timezone: string): string => {
+			// Common timezone definitions for iCalendar
+			const timezoneData: Record<string, { tzid: string; standard: { offset: string; rrule?: string; dtstart: string }; daylight?: { offset: string; rrule?: string; dtstart: string } }> = {
+				'Europe/London': {
+					tzid: 'Europe/London',
+					standard: { offset: '+0000', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T020000' },
+					daylight: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T010000' }
+				},
+				'Europe/Paris': {
+					tzid: 'Europe/Paris',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Berlin': {
+					tzid: 'Europe/Berlin',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Amsterdam': {
+					tzid: 'Europe/Amsterdam',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Brussels': {
+					tzid: 'Europe/Brussels',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Madrid': {
+					tzid: 'Europe/Madrid',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Rome': {
+					tzid: 'Europe/Rome',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Vienna': {
+					tzid: 'Europe/Vienna',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Warsaw': {
+					tzid: 'Europe/Warsaw',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Stockholm': {
+					tzid: 'Europe/Stockholm',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Copenhagen': {
+					tzid: 'Europe/Copenhagen',
+					standard: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T030000' },
+					daylight: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T020000' }
+				},
+				'Europe/Helsinki': {
+					tzid: 'Europe/Helsinki',
+					standard: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T040000' },
+					daylight: { offset: '+0300', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T030000' }
+				},
+				'Europe/Athens': {
+					tzid: 'Europe/Athens',
+					standard: { offset: '+0200', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T040000' },
+					daylight: { offset: '+0300', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T030000' }
+				},
+				'Europe/Lisbon': {
+					tzid: 'Europe/Lisbon',
+					standard: { offset: '+0000', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T020000' },
+					daylight: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T010000' }
+				},
+				'Europe/Dublin': {
+					tzid: 'Europe/Dublin',
+					standard: { offset: '+0000', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', dtstart: '19701025T020000' },
+					daylight: { offset: '+0100', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', dtstart: '19700329T010000' }
+				},
+				'Europe/Moscow': {
+					tzid: 'Europe/Moscow',
+					standard: { offset: '+0300', dtstart: '19700101T000000' }
+				},
+				'America/New_York': {
+					tzid: 'America/New_York',
+					standard: { offset: '-0500', rrule: 'FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', dtstart: '19701101T020000' },
+					daylight: { offset: '-0400', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', dtstart: '19700308T020000' }
+				},
+				'America/Chicago': {
+					tzid: 'America/Chicago',
+					standard: { offset: '-0600', rrule: 'FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', dtstart: '19701101T020000' },
+					daylight: { offset: '-0500', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', dtstart: '19700308T020000' }
+				},
+				'America/Denver': {
+					tzid: 'America/Denver',
+					standard: { offset: '-0700', rrule: 'FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', dtstart: '19701101T020000' },
+					daylight: { offset: '-0600', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', dtstart: '19700308T020000' }
+				},
+				'America/Los_Angeles': {
+					tzid: 'America/Los_Angeles',
+					standard: { offset: '-0800', rrule: 'FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', dtstart: '19701101T020000' },
+					daylight: { offset: '-0700', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', dtstart: '19700308T020000' }
+				},
+				'America/Toronto': {
+					tzid: 'America/Toronto',
+					standard: { offset: '-0500', rrule: 'FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', dtstart: '19701101T020000' },
+					daylight: { offset: '-0400', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', dtstart: '19700308T020000' }
+				},
+				'America/Vancouver': {
+					tzid: 'America/Vancouver',
+					standard: { offset: '-0800', rrule: 'FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', dtstart: '19701101T020000' },
+					daylight: { offset: '-0700', rrule: 'FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', dtstart: '19700308T020000' }
+				},
+				'America/Mexico_City': {
+					tzid: 'America/Mexico_City',
+					standard: { offset: '-0600', dtstart: '19700101T000000' }
+				},
+				'America/Sao_Paulo': {
+					tzid: 'America/Sao_Paulo',
+					standard: { offset: '-0300', dtstart: '19700101T000000' }
+				},
+				'America/Buenos_Aires': {
+					tzid: 'America/Buenos_Aires',
+					standard: { offset: '-0300', dtstart: '19700101T000000' }
+				},
+				'Asia/Dubai': {
+					tzid: 'Asia/Dubai',
+					standard: { offset: '+0400', dtstart: '19700101T000000' }
+				},
+				'Asia/Shanghai': {
+					tzid: 'Asia/Shanghai',
+					standard: { offset: '+0800', dtstart: '19700101T000000' }
+				},
+				'Asia/Tokyo': {
+					tzid: 'Asia/Tokyo',
+					standard: { offset: '+0900', dtstart: '19700101T000000' }
+				},
+				'Asia/Seoul': {
+					tzid: 'Asia/Seoul',
+					standard: { offset: '+0900', dtstart: '19700101T000000' }
+				},
+				'Asia/Hong_Kong': {
+					tzid: 'Asia/Hong_Kong',
+					standard: { offset: '+0800', dtstart: '19700101T000000' }
+				},
+				'Asia/Singapore': {
+					tzid: 'Asia/Singapore',
+					standard: { offset: '+0800', dtstart: '19700101T000000' }
+				},
+				'Asia/Bangkok': {
+					tzid: 'Asia/Bangkok',
+					standard: { offset: '+0700', dtstart: '19700101T000000' }
+				},
+				'Asia/Kolkata': {
+					tzid: 'Asia/Kolkata',
+					standard: { offset: '+0530', dtstart: '19700101T000000' }
+				},
+				'Asia/Karachi': {
+					tzid: 'Asia/Karachi',
+					standard: { offset: '+0500', dtstart: '19700101T000000' }
+				},
+				'Australia/Sydney': {
+					tzid: 'Australia/Sydney',
+					standard: { offset: '+1000', rrule: 'FREQ=YEARLY;BYMONTH=4;BYDAY=1SU', dtstart: '19700405T030000' },
+					daylight: { offset: '+1100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=1SU', dtstart: '19701004T020000' }
+				},
+				'Australia/Melbourne': {
+					tzid: 'Australia/Melbourne',
+					standard: { offset: '+1000', rrule: 'FREQ=YEARLY;BYMONTH=4;BYDAY=1SU', dtstart: '19700405T030000' },
+					daylight: { offset: '+1100', rrule: 'FREQ=YEARLY;BYMONTH=10;BYDAY=1SU', dtstart: '19701004T020000' }
+				},
+				'Australia/Brisbane': {
+					tzid: 'Australia/Brisbane',
+					standard: { offset: '+1000', dtstart: '19700101T000000' }
+				},
+				'Australia/Perth': {
+					tzid: 'Australia/Perth',
+					standard: { offset: '+0800', dtstart: '19700101T000000' }
+				},
+				'Pacific/Auckland': {
+					tzid: 'Pacific/Auckland',
+					standard: { offset: '+1200', rrule: 'FREQ=YEARLY;BYMONTH=4;BYDAY=1SU', dtstart: '19700405T030000' },
+					daylight: { offset: '+1300', rrule: 'FREQ=YEARLY;BYMONTH=9;BYDAY=-1SU', dtstart: '19700927T020000' }
+				}
+			};
+
+			const tzData = timezoneData[timezone];
+			if (!tzData) {
+				// If timezone not in our database, return empty string (will fall back to UTC)
+				return '';
+			}
+
+			let vtimezone = 'BEGIN:VTIMEZONE\r\n';
+			vtimezone += `TZID:${tzData.tzid}\r\n`;
+
+			// Add STANDARD component
+			vtimezone += 'BEGIN:STANDARD\r\n';
+			vtimezone += `DTSTART:${tzData.standard.dtstart}\r\n`;
+			vtimezone += `TZOFFSETFROM:${tzData.daylight?.offset || tzData.standard.offset}\r\n`;
+			vtimezone += `TZOFFSETTO:${tzData.standard.offset}\r\n`;
+			if (tzData.standard.rrule) {
+				vtimezone += `RRULE:${tzData.standard.rrule}\r\n`;
+			}
+			vtimezone += 'END:STANDARD\r\n';
+
+			// Add DAYLIGHT component if exists
+			if (tzData.daylight) {
+				vtimezone += 'BEGIN:DAYLIGHT\r\n';
+				vtimezone += `DTSTART:${tzData.daylight.dtstart}\r\n`;
+				vtimezone += `TZOFFSETFROM:${tzData.standard.offset}\r\n`;
+				vtimezone += `TZOFFSETTO:${tzData.daylight.offset}\r\n`;
+				if (tzData.daylight.rrule) {
+					vtimezone += `RRULE:${tzData.daylight.rrule}\r\n`;
+				}
+				vtimezone += 'END:DAYLIGHT\r\n';
+			}
+
+			vtimezone += 'END:VTIMEZONE\r\n';
+
+			return vtimezone;
 		};
 
 		// Function for generating iCal event
@@ -396,32 +804,54 @@ export class Caldav implements INodeType {
 			endDateTime: Date;
 			description?: string;
 			location?: string;
+			timezone?: string;
 		}): string => {
 			const uid = eventData.uid || generateEventUID();
 			const now = new Date();
 			const timestamp = formatDateForICal(now);
-			
+			const timezone = eventData.timezone || 'UTC';
+
 			let ical = 'BEGIN:VCALENDAR\r\n';
 			ical += 'VERSION:2.0\r\n';
 			ical += 'PRODID:-//n8n//CalDAV Node//EN\r\n';
+			ical += 'CALSCALE:GREGORIAN\r\n';
+
+			// Add VTIMEZONE block if not UTC
+			if (timezone !== 'UTC') {
+				const vtimezone = generateVTimezone(timezone);
+				if (vtimezone) {
+					ical += vtimezone;
+				}
+			}
+
 			ical += 'BEGIN:VEVENT\r\n';
 			ical += `UID:${uid}\r\n`;
 			ical += `DTSTAMP:${timestamp}\r\n`;
-			ical += `DTSTART:${formatDateForICal(eventData.startDateTime)}\r\n`;
-			ical += `DTEND:${formatDateForICal(eventData.endDateTime)}\r\n`;
+
+			// Format dates based on timezone
+			if (timezone === 'UTC') {
+				// Use UTC format with Z suffix
+				ical += `DTSTART:${formatDateForICal(eventData.startDateTime)}\r\n`;
+				ical += `DTEND:${formatDateForICal(eventData.endDateTime)}\r\n`;
+			} else {
+				// Use local time format with TZID
+				ical += `DTSTART;TZID=${timezone}:${formatDateForICalLocal(eventData.startDateTime)}\r\n`;
+				ical += `DTEND;TZID=${timezone}:${formatDateForICalLocal(eventData.endDateTime)}\r\n`;
+			}
+
 			ical += `SUMMARY:${eventData.title}\r\n`;
-			
+
 			if (eventData.description) {
 				ical += `DESCRIPTION:${eventData.description.replace(/\n/g, '\\n')}\r\n`;
 			}
-			
+
 			if (eventData.location) {
 				ical += `LOCATION:${eventData.location}\r\n`;
 			}
-			
+
 			ical += 'END:VEVENT\r\n';
 			ical += 'END:VCALENDAR\r\n';
-			
+
 			return ical;
 		};
 
@@ -945,8 +1375,9 @@ export class Caldav implements INodeType {
 					const endDateTime = new Date(this.getNodeParameter('endDateTime', i) as string);
 					const eventDescription = this.getNodeParameter('eventDescription', i, '') as string;
 					const eventLocation = this.getNodeParameter('eventLocation', i, '') as string;
+					const timezone = this.getNodeParameter('timezone', i, 'UTC') as string;
 
-					this.logger?.info(`[CalDAV CREATE] Starting creation of event: ${eventTitle}`);
+					this.logger?.info(`[CalDAV CREATE] Starting creation of event: ${eventTitle} with timezone: ${timezone}`);
 
 					// Создаем оптимизированный транспорт для аутентификации
 					const xhr = createOptimizedXhr(credentials);
@@ -961,6 +1392,7 @@ export class Caldav implements INodeType {
 							endDateTime,
 							description: eventDescription,
 							location: eventLocation,
+							timezone,
 						});
 						
 						this.logger?.info(`[CalDAV CREATE] Generated event UID: ${uid}, iCal length: ${icalData.length} chars`);
